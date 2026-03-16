@@ -65,7 +65,8 @@
         .ticker-content {
             display: inline-flex;
             white-space: nowrap;
-            animation: scroll-ltr 70s linear infinite;
+            /* Velocidade reduzida de 70s para 150s para leitura mais confortável */
+            animation: scroll-ltr 150s linear infinite;
             will-change: transform;
         }
 
@@ -173,25 +174,28 @@
             
             <!-- KPIs -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Card 1: Itens Disponíveis -->
                 <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group">
                     <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="package" class="w-16 h-16 text-blue-400"></i></div>
-                    <p class="text-slate-400 text-sm font-medium mb-1">Total Geral de Itens</p>
-                    <h2 id="kpiTotal" class="text-4xl font-bold text-white">0</h2>
-                    <p class="text-xs text-slate-500 mt-2">Soma de todas as fábricas</p>
+                    <p class="text-slate-400 text-sm font-medium mb-1">Itens Disponíveis</p>
+                    <h2 id="kpiAvailable" class="text-4xl font-bold text-white">0</h2>
+                    <p id="kpiTotalSub" class="text-xs text-slate-500 mt-2">De um total de 0 itens</p>
                 </div>
                 
+                <!-- Card 2: Itens Zerados -->
                 <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group border-b-4 border-b-accentRed">
                     <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="alert-triangle" class="w-16 h-16 text-red-500"></i></div>
                     <p class="text-slate-400 text-sm font-medium mb-1">Total de Itens Zerados</p>
                     <h2 id="kpiZeroed" class="text-4xl font-bold text-accentRed">0</h2>
-                    <p class="text-xs text-slate-500 mt-2">Necessitam reposição urgente</p>
+                    <p id="kpiAvgZeroed" class="text-xs text-slate-500 mt-2">Média de 0 por fábrica</p>
                 </div>
 
-                <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="percent" class="w-16 h-16 text-blue-400"></i></div>
-                    <p class="text-slate-400 text-sm font-medium mb-1">Porcentagem Média</p>
+                <!-- Card 3: Porcentagem de Disponibilidade -->
+                <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group border-b-4 border-b-emerald-500/50">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="percent" class="w-16 h-16 text-emerald-400"></i></div>
+                    <p class="text-slate-400 text-sm font-medium mb-1">Disponibilidade de Itens</p>
                     <h2 id="kpiPercentage" class="text-4xl font-bold text-white">0%</h2>
-                    <p class="text-xs text-slate-500 mt-2">Índice global de falta de estoque</p>
+                    <p class="text-xs text-slate-500 mt-2">Índice global de saúde do estoque</p>
                 </div>
             </div>
 
@@ -244,7 +248,7 @@
                                 <th class="py-4 px-6 font-medium">Código</th>
                                 <th class="py-4 px-6 font-medium text-right">Total de Itens</th>
                                 <th class="py-4 px-6 font-medium text-right">Itens Zerados</th>
-                                <th class="py-4 px-6 font-medium text-right">Taxa (%)</th>
+                                <th class="py-4 px-6 font-medium text-right">Disponibilidade (%)</th>
                                 <th class="py-4 px-6 font-medium text-center">IA</th>
                             </tr>
                         </thead>
@@ -362,7 +366,6 @@
 
     <!-- AI Action Plan Modal -->
     <div id="aiModal" class="fixed inset-0 z-[100] hidden items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
-        <!-- ... keeping AI modal exactly the same ... -->
         <div class="glass-effect bg-darkCard w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-700 p-6 transform scale-95 transition-transform duration-300 m-4">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-4">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2">
@@ -379,7 +382,6 @@
 
     <!-- Settings Modal (API Key) -->
     <div id="settingsModal" class="fixed inset-0 z-[100] hidden items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
-        <!-- ... keeping Settings modal exactly the same ... -->
         <div class="glass-effect bg-darkCard w-full max-w-md rounded-2xl shadow-2xl border border-slate-700 p-6 transform scale-95 transition-transform duration-300 m-4">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-4">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2">
@@ -511,11 +513,21 @@
                 grandZeroed += item.zeroed;
             });
 
-            const avgPercentage = grandTotal > 0 ? ((grandZeroed / grandTotal) * 100).toFixed(2) : 0;
+            const grandAvailable = grandTotal - grandZeroed;
+            const avgPercentage = grandTotal > 0 ? ((grandAvailable / grandTotal) * 100).toFixed(2) : 0;
+            
+            // Para evitar divisões por 0, garantimos no mínimo 1
+            const validFactoriesCount = data.filter(d => d.total > 0).length || 1;
+            const avgZeroed = Math.round(grandZeroed / validFactoriesCount);
 
-            animateValue('kpiTotal', 0, grandTotal, 1000);
+            // Animate Number Counters
+            animateValue('kpiAvailable', 0, grandAvailable, 1000);
             animateValue('kpiZeroed', 0, grandZeroed, 1000);
             document.getElementById('kpiPercentage').innerText = `${avgPercentage}%`;
+            
+            // Textos auxiliares e globais dos cards
+            document.getElementById('kpiTotalSub').innerText = `De um total de ${grandTotal.toLocaleString('pt-BR')} itens`;
+            document.getElementById('kpiAvgZeroed').innerText = `Média de ${avgZeroed.toLocaleString('pt-BR')} por fábrica`;
 
             const labels = data.map(d => d.name);
             const absoluteData = data.map(d => d.zeroed);
@@ -689,8 +701,11 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
             data.forEach(item => {
-                const percentage = item.total > 0 ? ((item.zeroed / item.total) * 100).toFixed(2) : '0.00';
-                const isHighRisk = percentage > 20;
+                // Tabela atualizada para mostrar a % de Disponibilidade em vez da de Zerados
+                const available = item.total - item.zeroed;
+                const availabilityPerc = item.total > 0 ? ((available / item.total) * 100).toFixed(2) : '0.00';
+                const isHighRisk = (item.total > 0 && ((item.zeroed / item.total) * 100) > 20); // Continua marcando risco se > 20% zerado
+                
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/80 transition-colors";
                 tr.innerHTML = `
@@ -698,8 +713,8 @@
                     <td class="py-4 px-6 text-slate-400">#${item.code}</td>
                     <td class="py-4 px-6 text-right font-medium">${item.total.toLocaleString('pt-BR')}</td>
                     <td class="py-4 px-6 text-right font-bold ${item.zeroed > 0 ? 'text-accentRed' : 'text-slate-300'}">${item.zeroed.toLocaleString('pt-BR')}</td>
-                    <td class="py-4 px-6 text-right"><span class="px-2 py-1 rounded-md text-xs font-semibold ${isHighRisk ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}">${percentage}%</span></td>
-                    <td class="py-4 px-6 text-center"><button onclick="openActionPlanModal('${item.name}', '${item.code}', ${item.total}, ${item.zeroed}, '${percentage}')" class="p-2 rounded-lg bg-slate-800 hover:bg-primaryBlue/20 hover:text-primaryBlue text-slate-400 transition-colors group relative" title="Gerar Plano de Ação">✨</button></td>
+                    <td class="py-4 px-6 text-right"><span class="px-2 py-1 rounded-md text-xs font-semibold ${isHighRisk ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}">${availabilityPerc}%</span></td>
+                    <td class="py-4 px-6 text-center"><button onclick="openActionPlanModal('${item.name}', '${item.code}', ${item.total}, ${item.zeroed}, '${availabilityPerc}')" class="p-2 rounded-lg bg-slate-800 hover:bg-primaryBlue/20 hover:text-primaryBlue text-slate-400 transition-colors group relative" title="Gerar Plano de Ação">✨</button></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -709,13 +724,14 @@
             const tickerContainer = document.getElementById('tickerContent');
             let tickerHTML = '';
             data.forEach(item => {
-                const percentage = item.total > 0 ? ((item.zeroed / item.total) * 100).toFixed(1) : '0.0';
+                const available = item.total - item.zeroed;
+                const availabilityPerc = item.total > 0 ? ((available / item.total) * 100).toFixed(1) : '0.0';
                 tickerHTML += `
                     <div class="inline-flex items-center mx-6 text-sm">
                         <span class="font-bold text-white mr-2">${item.name}</span>
                         <span class="text-slate-500 mr-2">(${item.code}):</span>
                         <span class="text-accentRed font-semibold mr-1">${item.zeroed.toLocaleString('pt-BR')} itens zerados</span>
-                        <span class="text-primaryBlue bg-blue-500/10 px-2 py-0.5 rounded-full text-xs font-bold">(${percentage}%)</span>
+                        <span class="text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full text-xs font-bold">(Disponibilidade Total: ${availabilityPerc}%)</span>
                         <span class="mx-6 text-slate-700">|</span>
                     </div>
                 `;
@@ -776,8 +792,8 @@
             container.innerHTML = `<div class="flex items-center gap-2 text-slate-400 animate-pulse"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Analisando dados globais da Supply Chain...</div>`;
             lucide.createIcons();
             
-            const prompt = `Dados do Estoque: Total Itens=${total}, Zerados=${zeroed} (${percentage}%). Detalhes por fábrica: ${JSON.stringify(data.map(d => ({fábrica: d.name, zerados: d.zeroed})))}`;
-            const sysPrompt = "Você é um analista sênior de Supply Chain. Forneça um resumo executivo muito curto (máximo 2 parágrafos) em Português-BR focado nas fábricas com mais itens zerados. Dê recomendações logísticas amplas. Seja profissional e vá direto ao ponto. Use negrito (**) para destacar métricas.";
+            const prompt = `Dados do Estoque: Total Itens=${total}, Zerados=${zeroed} (Disponibilidade ${percentage}%). Detalhes por fábrica: ${JSON.stringify(data.map(d => ({fábrica: d.name, zerados: d.zeroed})))}`;
+            const sysPrompt = "Você é um analista sênior de Supply Chain. Forneça um resumo executivo muito curto (máximo 2 parágrafos) em Português-BR focado nas fábricas com mais itens zerados. Dê recomendações logísticas amplas para elevar a disponibilidade. Seja profissional e vá direto ao ponto. Use negrito (**) para destacar métricas.";
 
             const response = await callGemini(prompt, sysPrompt);
             if (response) {
@@ -788,7 +804,7 @@
             }
         }
 
-        async function openActionPlanModal(name, code, total, zeroed, percentage) {
+        async function openActionPlanModal(name, code, total, zeroed, percentageDisp) {
             const modal = document.getElementById('aiModal');
             const content = document.getElementById('aiModalContent');
             const info = document.getElementById('modalFactoryInfo');
@@ -798,11 +814,11 @@
             modal.classList.add('flex');
             setTimeout(() => { modal.classList.remove('opacity-0'); const innerDiv = modal.querySelector('div'); if (innerDiv) innerDiv.classList.remove('scale-95'); }, 10);
 
-            info.innerHTML = `Fábrica: <strong class="text-white">${name} (${code})</strong> | Itens Zerados: <span class="text-accentRed font-bold">${zeroed}</span> de ${total} (${percentage}%)`;
+            info.innerHTML = `Fábrica: <strong class="text-white">${name} (${code})</strong> | Itens Zerados: <span class="text-accentRed font-bold">${zeroed}</span> de ${total} (Disp: ${percentageDisp}%)`;
             content.innerHTML = `<div class="flex flex-col items-center justify-center py-10 gap-4 text-slate-400 animate-pulse"><i data-lucide="brain-circuit" class="w-12 h-12 text-primaryBlue animate-bounce"></i><p>Gerando plano de ação tático...</p></div>`;
             lucide.createIcons();
 
-            const prompt = `Fábrica: ${name}. Itens Totais: ${total}. Itens Zerados: ${zeroed}. Porcentagem Crítica: ${percentage}%.`;
+            const prompt = `Fábrica: ${name}. Itens Totais: ${total}. Itens Zerados: ${zeroed}. Disponibilidade: ${percentageDisp}%.`;
             const sysPrompt = "Você é um Consultor Logístico Tático. Gere um plano de ação rápido (3 a 4 tópicos curtos) para mitigar a falta de estoque nesta fábrica específica. Use tom proativo. Responda em PT-BR usando markdown bullet points (*).";
 
             const response = await callGemini(prompt, sysPrompt);
