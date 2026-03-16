@@ -1,0 +1,50 @@
+[
+  {
+    "code": "7950",
+    "name": "ITU",
+    "total": 4221,
+    "zeroed": 185
+  },
+  {
+    "code": "7951",
+    "name": "Curitiba",
+    "total": 4325,
+    "zeroed": 125
+  },
+  {
+    "code": "7952",
+    "name": "7 Lagoas",
+    "total": 4789,
+    "zeroed": 99
+  },
+  {
+    "code": "7953",
+    "name": "Recife",
+    "total": 2141,
+    "zeroed": 68
+  },
+  {
+    "code": "7954",
+    "name": "Itaquera",
+    "total": 1674,
+    "zeroed": 57
+  },
+  {
+    "code": "7956",
+    "name": "Cabo de Santo Agostinho",
+    "total": 2295,
+    "zeroed": 37
+  },
+  {
+    "code": "7959",
+    "name": "Sorocaba",
+    "total": 5330,
+    "zeroed": 149
+  },
+  {
+    "code": "78AF",
+    "name": "Petrolina",
+    "total": 1624,
+    "zeroed": 96
+  }
+]
