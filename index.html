@@ -65,8 +65,7 @@
         .ticker-content {
             display: inline-flex;
             white-space: nowrap;
-            /* Starts entirely outside the left edge, moves to entirely outside the right edge */
-            animation: scroll-ltr 30s linear infinite;
+            animation: scroll-ltr 70s linear infinite;
             will-change: transform;
         }
 
@@ -78,8 +77,12 @@
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100vw); }
         }
+        
+        @keyframes shimmer {
+            100% { transform: translateX(100%); }
+        }
 
-        /* Custom Scrollbar for the table */
+        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -102,141 +105,255 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
         
-        /* Modal Styles */
         .modal-overlay {
             background: rgba(11, 15, 25, 0.8);
             backdrop-filter: blur(4px);
         }
     </style>
 </head>
-<body class="antialiased min-h-screen">
+<body class="antialiased min-h-screen flex flex-col">
 
-    <!-- Header & Upload Section -->
-    <header class="pt-10 pb-6 px-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <header class="pt-10 pb-6 px-6 max-w-7xl mx-auto w-full">
         <div class="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
                 <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-red-400">
                     Dashboard de Ativos
                 </h1>
-                <p class="text-slate-400 mt-1 text-sm">Bem-vindo, Storekeeper. Analise o status de peças zeradas por fábrica.</p>
+                <p id="headerSubtitle" class="text-slate-400 mt-1 text-sm">Bem-vindo Storekeeper. Analise o status de peças zeradas por fábrica.</p>
             </div>
             
             <div class="flex items-center gap-4">
-                <!-- Settings Button -->
-                <button onclick="openSettingsModal()" class="p-3 bg-darkCard border border-slate-700 hover:border-slate-500 rounded-xl text-slate-400 hover:text-white transition-all shadow-lg" title="Configurar API Key">
-                    <i data-lucide="settings" class="w-5 h-5"></i>
+                <!-- Settings Button (Global) -->
+                <button onclick="openSettingsModal()" class="p-3 bg-gradient-to-br from-slate-800 to-darkCard border border-slate-600 hover:border-primaryBlue rounded-xl text-slate-300 hover:text-primaryBlue transition-all shadow-lg hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] group relative overflow-hidden" title="Configurar API Key">
+                    <div class="absolute inset-0 bg-primaryBlue/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                    <i data-lucide="settings" class="w-5 h-5 relative z-10 group-hover:rotate-90 transition-transform duration-500"></i>
                 </button>
 
-                <div class="relative group cursor-pointer">
-                    <input type="file" id="excelFile" accept=".xlsx, .xlsm" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handleFileUpload(event)">
-                    <div class="flex items-center gap-3 bg-darkCard border border-slate-700 group-hover:border-primaryBlue/50 group-hover:bg-slate-800 transition-all px-6 py-3 rounded-xl shadow-lg">
-                        <i data-lucide="upload-cloud" class="text-primaryBlue w-6 h-6 group-hover:-translate-y-1 transition-transform"></i>
-                        <div>
-                            <p class="font-medium text-sm text-slate-200">Carregar Planilha</p>
-                            <p class="text-xs text-slate-500">.xlsx ou .xlsm</p>
-                        </div>
-                    </div>
-                </div>
+                <!-- Navigation Buttons -->
+                <button id="btnGoAdmin" onclick="showLoginView()" class="flex items-center gap-2 bg-gradient-to-br from-slate-800 to-darkCard border border-slate-700 hover:border-emerald-500 transition-all px-6 py-3 rounded-xl shadow-lg hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] group text-slate-300 hover:text-white">
+                    <i data-lucide="shield" class="w-5 h-5 text-emerald-500 group-hover:scale-110 transition-transform"></i>
+                    <span class="font-medium text-sm">Acesso Admin</span>
+                </button>
+
+                <button id="btnGoPublic" onclick="showPublicView()" class="hidden flex items-center gap-2 bg-gradient-to-br from-slate-800 to-darkCard border border-slate-700 hover:border-primaryBlue transition-all px-6 py-3 rounded-xl shadow-lg hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] group text-slate-300 hover:text-white">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5 text-primaryBlue group-hover:-translate-x-1 transition-transform"></i>
+                    <span class="font-medium text-sm">Voltar ao Público</span>
+                </button>
             </div>
         </div>
     </header>
 
-    <!-- Loading State -->
-    <div id="loading" class="hidden flex-col items-center justify-center py-20">
-        <i data-lucide="loader-2" class="animate-spin text-primaryBlue w-12 h-12 mb-4"></i>
-        <p class="text-slate-400 animate-pulse">Processando milhares de linhas de dados...</p>
+    <!-- MAIN VIEWS CONTAINER -->
+    <div class="flex-1 w-full relative">
+
+        <!-- ========================================== -->
+        <!-- VIEW 1: LOADING STATE (Public)               -->
+        <!-- ========================================== -->
+        <div id="loading" class="flex flex-col items-center justify-center py-20 absolute inset-0 z-10">
+            <i data-lucide="loader-2" class="animate-spin text-primaryBlue w-12 h-12 mb-4"></i>
+            <p class="text-slate-400 animate-pulse">Buscando banco de dados...</p>
+        </div>
+
+        <div id="noDataError" class="hidden flex-col items-center justify-center py-20 absolute inset-0 z-10">
+            <div class="bg-darkCard p-8 rounded-2xl border border-slate-700 shadow-xl text-center max-w-md">
+                <i data-lucide="database" class="text-slate-500 w-16 h-16 mx-auto mb-4 opacity-50"></i>
+                <h3 class="text-xl font-bold text-white mb-2">Banco de Dados não encontrado</h3>
+                <p class="text-slate-400 text-sm mb-6">O arquivo <code>dados_estoque.json</code> ainda não foi carregado no servidor.</p>
+                <button onclick="showLoginView()" class="px-6 py-3 bg-primaryBlue hover:bg-blue-600 text-white rounded-xl font-medium transition-colors w-full shadow-lg shadow-blue-500/20">
+                    Acessar Painel Admin
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: PUBLIC DASHBOARD                     -->
+        <!-- ========================================== -->
+        <main id="dashboardView" class="hidden max-w-7xl mx-auto px-6 pb-20 space-y-8 animate-fade-in w-full">
+            
+            <!-- KPIs -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="package" class="w-16 h-16 text-blue-400"></i></div>
+                    <p class="text-slate-400 text-sm font-medium mb-1">Total Geral de Itens</p>
+                    <h2 id="kpiTotal" class="text-4xl font-bold text-white">0</h2>
+                    <p class="text-xs text-slate-500 mt-2">Soma de todas as fábricas</p>
+                </div>
+                
+                <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group border-b-4 border-b-accentRed">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="alert-triangle" class="w-16 h-16 text-red-500"></i></div>
+                    <p class="text-slate-400 text-sm font-medium mb-1">Total de Itens Zerados</p>
+                    <h2 id="kpiZeroed" class="text-4xl font-bold text-accentRed">0</h2>
+                    <p class="text-xs text-slate-500 mt-2">Necessitam reposição urgente</p>
+                </div>
+
+                <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="percent" class="w-16 h-16 text-blue-400"></i></div>
+                    <p class="text-slate-400 text-sm font-medium mb-1">Porcentagem Média</p>
+                    <h2 id="kpiPercentage" class="text-4xl font-bold text-white">0%</h2>
+                    <p class="text-xs text-slate-500 mt-2">Índice global de falta de estoque</p>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="glass-effect rounded-2xl p-6 shadow-lg">
+                    <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-5 h-5 text-accentRed"></i> Quantidade Absoluta de Itens Zerados
+                    </h3>
+                    <div class="relative h-72">
+                        <canvas id="absoluteChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="glass-effect rounded-2xl p-6 shadow-lg flex flex-col">
+                    <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-5 h-5 text-emerald-400"></i> Disponibilidade (%) por Fábrica
+                    </h3>
+                    <div class="relative h-72 flex-1">
+                        <canvas id="percentageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Insights Panel -->
+            <div class="glass-effect rounded-2xl p-6 shadow-lg border border-primaryBlue/30 relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10"><i data-lucide="sparkles" class="w-24 h-24 text-primaryBlue"></i></div>
+                <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-primaryBlue"></i> ✨ Insights de IA (Gemini)
+                </h3>
+                <div id="aiInsightsContent" class="text-slate-300 text-sm leading-relaxed min-h-[60px]">
+                    <div class="flex items-center gap-2 text-slate-400 animate-pulse">
+                        <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Aguardando dados para análise...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="glass-effect rounded-2xl shadow-lg overflow-hidden">
+                <div class="p-6 border-b border-slate-700/50 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <i data-lucide="table" class="w-5 h-5 text-slate-300"></i> Detalhamento por Fábrica
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-800/50 text-slate-300 text-sm">
+                                <th class="py-4 px-6 font-medium">Fábrica</th>
+                                <th class="py-4 px-6 font-medium">Código</th>
+                                <th class="py-4 px-6 font-medium text-right">Total de Itens</th>
+                                <th class="py-4 px-6 font-medium text-right">Itens Zerados</th>
+                                <th class="py-4 px-6 font-medium text-right">Taxa (%)</th>
+                                <th class="py-4 px-6 font-medium text-center">IA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="text-sm divide-y divide-slate-800">
+                            <!-- Rows will be generated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: LOGIN ADMIN                          -->
+        <!-- ========================================== -->
+        <div id="loginView" class="hidden flex-col items-center justify-center pt-10 absolute inset-0 z-20 w-full px-6">
+            <div class="glass-effect w-full max-w-md rounded-2xl shadow-2xl border border-slate-700 p-8">
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800/50 border border-slate-700 mb-4 shadow-lg">
+                        <i data-lucide="lock" class="w-8 h-8 text-slate-300"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white">Acesso Restrito</h2>
+                    <p class="text-slate-400 text-sm mt-1">Insira suas credenciais administrativas</p>
+                </div>
+
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Usuário</label>
+                        <div class="relative">
+                            <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
+                            <input type="text" id="adminUser" placeholder="Digite o usuário..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:border-primaryBlue focus:ring-1 focus:ring-primaryBlue transition-colors" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Senha</label>
+                        <div class="relative">
+                            <i data-lucide="key" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
+                            <input type="password" id="adminPass" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:border-primaryBlue focus:ring-1 focus:ring-primaryBlue transition-colors" required>
+                        </div>
+                    </div>
+                    
+                    <div id="loginError" class="hidden text-red-400 text-sm text-center py-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                        Credenciais inválidas. Tente novamente.
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-primaryBlue hover:bg-blue-600 text-white rounded-lg font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group">
+                        <span>Entrar no Sistema</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW 4: ADMIN DASHBOARD (Upload & Convert)   -->
+        <!-- ========================================== -->
+        <main id="adminView" class="hidden max-w-4xl mx-auto px-6 pt-10 pb-20 w-full">
+            <div class="glass-effect rounded-2xl p-8 shadow-2xl border border-emerald-500/20">
+                
+                <div class="flex items-center gap-3 mb-8 border-b border-slate-700/50 pb-6">
+                    <i data-lucide="database-zap" class="w-8 h-8 text-emerald-400"></i>
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">Atualização de Base de Dados</h2>
+                        <p class="text-slate-400 text-sm">Converta planilhas (.xlsx/.xlsm) para o formato JSON otimizado.</p>
+                    </div>
+                </div>
+
+                <!-- Passo 1: Upload -->
+                <div id="adminStep1" class="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 hover:border-primaryBlue transition-all relative group cursor-pointer">
+                    <input type="file" id="adminExcelFile" accept=".xlsx, .xlsm" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handleAdminFileUpload(event)">
+                    
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] rounded-xl"></div>
+                    
+                    <div class="bg-darkCard p-4 rounded-full shadow-lg mb-4 group-hover:-translate-y-2 transition-transform duration-300 relative z-10">
+                        <i data-lucide="file-spreadsheet" class="w-10 h-10 text-primaryBlue"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2 relative z-10">Selecione ou arraste a Planilha</h3>
+                    <p class="text-slate-400 text-sm text-center max-w-md relative z-10">O sistema irá ler as abas e calcular automaticamente os totais de itens zerados por fábrica.</p>
+                </div>
+
+                <!-- Step Processing -->
+                <div id="adminProcessing" class="hidden flex-col items-center justify-center p-12">
+                    <i data-lucide="cog" class="w-12 h-12 text-primaryBlue animate-spin mb-4"></i>
+                    <p class="text-white font-medium">Extraindo dados e consolidando...</p>
+                </div>
+
+                <!-- Passo 2: Download JSON -->
+                <div id="adminStep2" class="hidden flex-col items-center justify-center p-10 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                    <div class="bg-emerald-500/20 p-4 rounded-full shadow-lg mb-4">
+                        <i data-lucide="check-circle-2" class="w-12 h-12 text-emerald-400"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Planilha Processada com Sucesso!</h3>
+                    <p class="text-slate-400 text-sm text-center max-w-md mb-8">Os dados foram estruturados. Baixe o arquivo JSON gerado e faça o upload no GitHub para atualizar o Dashboard Público.</p>
+                    
+                    <div class="flex gap-4">
+                        <button onclick="resetAdminUpload()" class="px-6 py-3 rounded-xl font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-600">
+                            Processar Outra
+                        </button>
+                        <button onclick="downloadJSON()" class="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 group">
+                            <i data-lucide="download" class="w-5 h-5 group-hover:translate-y-1 transition-transform"></i>
+                            <span>Baixar dados_estoque.json</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
     </div>
 
-    <!-- Main Dashboard Area -->
-    <main id="dashboard" class="hidden max-w-7xl mx-auto px-6 pb-20 space-y-8 animate-fade-in">
-        
-        <!-- KPIs -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="package" class="w-16 h-16 text-blue-400"></i></div>
-                <p class="text-slate-400 text-sm font-medium mb-1">Total Geral de Itens</p>
-                <h2 id="kpiTotal" class="text-4xl font-bold text-white">0</h2>
-                <p class="text-xs text-slate-500 mt-2">Soma de todas as fábricas</p>
-            </div>
-            
-            <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group border-b-4 border-b-accentRed">
-                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="alert-triangle" class="w-16 h-16 text-red-500"></i></div>
-                <p class="text-slate-400 text-sm font-medium mb-1">Total de Itens Zerados</p>
-                <h2 id="kpiZeroed" class="text-4xl font-bold text-accentRed">0</h2>
-                <p class="text-xs text-slate-500 mt-2">Necessitam reposição urgente</p>
-            </div>
-
-            <div class="glass-effect rounded-2xl p-6 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i data-lucide="percent" class="w-16 h-16 text-blue-400"></i></div>
-                <p class="text-slate-400 text-sm font-medium mb-1">Porcentagem Média</p>
-                <h2 id="kpiPercentage" class="text-4xl font-bold text-white">0%</h2>
-                <p class="text-xs text-slate-500 mt-2">Índice global de falta de estoque</p>
-            </div>
-        </div>
-
-        <!-- Charts Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="glass-effect rounded-2xl p-6 shadow-lg">
-                <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <i data-lucide="bar-chart-2" class="w-5 h-5 text-accentRed"></i> Quantidade Absoluta de Itens Zerados
-                </h3>
-                <div class="relative h-72">
-                    <canvas id="absoluteChart"></canvas>
-                </div>
-            </div>
-            
-            <div class="glass-effect rounded-2xl p-6 shadow-lg">
-                <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <i data-lucide="pie-chart" class="w-5 h-5 text-primaryBlue"></i> Porcentagem (%) de Itens Zerados
-                </h3>
-                <div class="relative h-72">
-                    <canvas id="percentageChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- AI Insights Panel -->
-        <div class="glass-effect rounded-2xl p-6 shadow-lg border border-primaryBlue/30 relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-4 opacity-10"><i data-lucide="sparkles" class="w-24 h-24 text-primaryBlue"></i></div>
-            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <i data-lucide="sparkles" class="w-5 h-5 text-primaryBlue"></i> ✨ Insights de IA (Gemini)
-            </h3>
-            <div id="aiInsightsContent" class="text-slate-300 text-sm leading-relaxed min-h-[60px]">
-                <div class="flex items-center gap-2 text-slate-400 animate-pulse">
-                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Aguardando processamento da planilha...
-                </div>
-            </div>
-        </div>
-
-        <!-- Data Table -->
-        <div class="glass-effect rounded-2xl shadow-lg overflow-hidden">
-            <div class="p-6 border-b border-slate-700/50 flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-white flex items-center gap-2">
-                    <i data-lucide="table" class="w-5 h-5 text-slate-300"></i> Detalhamento por Fábrica
-                </h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-800/50 text-slate-300 text-sm">
-                            <th class="py-4 px-6 font-medium">Fábrica</th>
-                            <th class="py-4 px-6 font-medium">Código</th>
-                            <th class="py-4 px-6 font-medium text-right">Total de Itens</th>
-                            <th class="py-4 px-6 font-medium text-right">Itens Zerados</th>
-                            <th class="py-4 px-6 font-medium text-right">Taxa (%)</th>
-                            <th class="py-4 px-6 font-medium text-center">IA</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody" class="text-sm divide-y divide-slate-800">
-                        <!-- Rows will be generated via JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-    </main>
-
-    <!-- News Ticker -->
+    <!-- News Ticker (Public Only) -->
     <div class="ticker-container hidden" id="tickerContainer">
         <div class="ticker-content" id="tickerContent">
             <!-- Ticker items will be generated here -->
@@ -245,6 +362,7 @@
 
     <!-- AI Action Plan Modal -->
     <div id="aiModal" class="fixed inset-0 z-[100] hidden items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
+        <!-- ... keeping AI modal exactly the same ... -->
         <div class="glass-effect bg-darkCard w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-700 p-6 transform scale-95 transition-transform duration-300 m-4">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-4">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2">
@@ -254,17 +372,14 @@
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
-            <div id="modalFactoryInfo" class="text-sm text-slate-400 mb-4 font-medium bg-slate-800/50 p-3 rounded-lg">
-                <!-- Factory info goes here -->
-            </div>
-            <div id="aiModalContent" class="text-slate-300 text-sm leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
-                <!-- AI Content goes here -->
-            </div>
+            <div id="modalFactoryInfo" class="text-sm text-slate-400 mb-4 font-medium bg-slate-800/50 p-3 rounded-lg"></div>
+            <div id="aiModalContent" class="text-slate-300 text-sm leading-relaxed max-h-[60vh] overflow-y-auto pr-2"></div>
         </div>
     </div>
 
     <!-- Settings Modal (API Key) -->
     <div id="settingsModal" class="fixed inset-0 z-[100] hidden items-center justify-center modal-overlay opacity-0 transition-opacity duration-300">
+        <!-- ... keeping Settings modal exactly the same ... -->
         <div class="glass-effect bg-darkCard w-full max-w-md rounded-2xl shadow-2xl border border-slate-700 p-6 transform scale-95 transition-transform duration-300 m-4">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-4">
                 <h3 class="text-xl font-bold text-white flex items-center gap-2">
@@ -277,7 +392,7 @@
             <div class="mb-4">
                 <label class="block text-sm font-medium text-slate-300 mb-2">Chave da API do Gemini (Opcional)</label>
                 <input type="password" id="apiKeyInput" placeholder="Cole sua chave de API aqui..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primaryBlue focus:ring-1 focus:ring-primaryBlue transition-colors placeholder-slate-600">
-                <p class="text-xs text-slate-500 mt-2">O ambiente injeta uma chave automaticamente. Preencha aqui apenas se estiver enfrentando erros 401 de Autenticação.</p>
+                <p class="text-xs text-slate-500 mt-2">Preencha aqui caso necessite de chave própria para usar a IA.</p>
             </div>
             <div class="flex justify-end gap-3 mt-6">
                 <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-lg font-medium text-slate-300 hover:bg-slate-800 transition-colors">Cancelar</button>
@@ -293,6 +408,9 @@
 
         // Gemini API Config
         const apiKey = "";
+        
+        // Data variable for Admin JSON export
+        let jsonExportData = null;
 
         // Business Rules Mapping
         const factoryMap = {
@@ -310,86 +428,81 @@
         let absoluteChartInstance = null;
         let percentageChartInstance = null;
 
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            // UI Transitions
-            document.getElementById('dashboard').classList.add('hidden');
-            document.getElementById('tickerContainer').classList.add('hidden');
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('loading').classList.add('flex');
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    processData(workbook);
-                } catch (error) {
-                    alert("Erro ao processar o arquivo. Certifique-se de que é um Excel válido.");
-                    console.error(error);
-                    resetUI();
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        function resetUI() {
+        // ==========================================
+        // VIEW ROUTING LOGIC
+        // ==========================================
+        function hideAllViews() {
             document.getElementById('loading').classList.add('hidden');
-            document.getElementById('loading').classList.remove('flex');
+            document.getElementById('noDataError').classList.add('hidden');
+            document.getElementById('dashboardView').classList.add('hidden');
+            document.getElementById('loginView').classList.add('hidden');
+            document.getElementById('adminView').classList.add('hidden');
+            document.getElementById('tickerContainer').classList.add('hidden');
         }
 
-        // Helper to find column flexibly (ignores case and trimming issues)
-        function getCellValue(row, possibleKeys) {
-            for (const key of Object.keys(row)) {
-                const cleanKey = key.toString().trim().toLowerCase();
-                if (possibleKeys.map(k => k.toLowerCase()).includes(cleanKey)) {
-                    return row[key];
+        function showPublicView() {
+            hideAllViews();
+            document.getElementById('headerSubtitle').innerText = "Bem-vindo. Analise o status de peças zeradas por fábrica.";
+            document.getElementById('btnGoAdmin').classList.remove('hidden');
+            document.getElementById('btnGoPublic').classList.add('hidden');
+            
+            // Try fetching data
+            fetchPublicData();
+        }
+
+        function showLoginView() {
+            hideAllViews();
+            document.getElementById('loginView').classList.remove('hidden');
+            document.getElementById('loginView').classList.add('flex');
+            
+            document.getElementById('headerSubtitle').innerText = "Área Restrita Administrativa.";
+            document.getElementById('btnGoAdmin').classList.add('hidden');
+            document.getElementById('btnGoPublic').classList.remove('hidden');
+            
+            // Reset fields
+            document.getElementById('adminUser').value = '';
+            document.getElementById('adminPass').value = '';
+            document.getElementById('loginError').classList.add('hidden');
+        }
+
+        function showAdminView() {
+            hideAllViews();
+            document.getElementById('adminView').classList.remove('hidden');
+            document.getElementById('adminView').classList.add('block');
+            resetAdminUpload();
+        }
+
+        // ==========================================
+        // PUBLIC DASHBOARD LOGIC (Fetch JSON)
+        // ==========================================
+        async function fetchPublicData() {
+            document.getElementById('loading').classList.remove('hidden');
+            
+            try {
+                // Tenta carregar o banco de dados (ignorando cache)
+                const response = await fetch('dados_estoque.json?nocache=' + new Date().getTime());
+                
+                if (!response.ok) {
+                    throw new Error('File not found');
                 }
+                
+                const data = await response.json();
+                document.getElementById('loading').classList.add('hidden');
+                
+                // Se encontrou dados, mostra o dashboard
+                document.getElementById('dashboardView').classList.remove('hidden');
+                document.getElementById('tickerContainer').classList.remove('hidden');
+                updateDashboard(data);
+                
+            } catch (error) {
+                console.warn("Nenhum banco de dados estático encontrado.", error);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('noDataError').classList.remove('hidden');
+                document.getElementById('noDataError').classList.add('flex');
             }
-            return null;
-        }
-
-        function processData(workbook) {
-            // Initialize Data Store
-            let store = {};
-            Object.keys(factoryMap).forEach(code => {
-                store[code] = { code: code, name: factoryMap[code], total: 0, zeroed: 0 };
-            });
-
-            // Process Sheets
-            workbook.SheetNames.forEach(sheetName => {
-                const sheet = workbook.Sheets[sheetName];
-                const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
-
-                // Special Rule: Relatório Cruzado -> Adds to 7951 (Curitiba)
-                if (sheetName.trim().toLowerCase() === 'relatório cruzado' || sheetName.trim().toLowerCase() === 'relatorio cruzado') {
-                    rows.forEach(row => {
-                        const qtd = getCellValue(row, ['Qtd Estoque']);
-                        if (qtd !== null && qtd !== '') {
-                            store['7951'].total++;
-                            if (Number(qtd) === 0) store['7951'].zeroed++;
-                        }
-                    });
-                } 
-                // Normal Rules
-                else if (factoryMap[sheetName]) {
-                    rows.forEach(row => {
-                        const saldo = getCellValue(row, ['Saldo']);
-                        if (saldo !== null && saldo !== '') {
-                            store[sheetName].total++;
-                            if (Number(saldo) === 0) store[sheetName].zeroed++;
-                        }
-                    });
-                }
-            });
-
-            updateDashboard(Object.values(store));
         }
 
         function updateDashboard(data) {
-            // Aggregate KPIs
             let grandTotal = 0;
             let grandZeroed = 0;
 
@@ -400,38 +513,146 @@
 
             const avgPercentage = grandTotal > 0 ? ((grandZeroed / grandTotal) * 100).toFixed(2) : 0;
 
-            // Animate Number Counters
             animateValue('kpiTotal', 0, grandTotal, 1000);
             animateValue('kpiZeroed', 0, grandZeroed, 1000);
             document.getElementById('kpiPercentage').innerText = `${avgPercentage}%`;
 
-            // Prepare Chart Data
             const labels = data.map(d => d.name);
             const absoluteData = data.map(d => d.zeroed);
-            const percentageData = data.map(d => d.total > 0 ? ((d.zeroed / d.total) * 100).toFixed(2) : 0);
+            const availabilityData = data.map(d => d.total > 0 ? (((d.total - d.zeroed) / d.total) * 100).toFixed(2) : 0);
 
-            renderCharts(labels, absoluteData, percentageData);
+            renderCharts(labels, absoluteData, availabilityData);
             renderTable(data);
             renderTicker(data);
-
-            // Hide Loading, Show Dashboard
-            resetUI();
-            document.getElementById('dashboard').classList.remove('hidden');
-            document.getElementById('tickerContainer').classList.remove('hidden');
-
-            // Trigger AI Insights
             generateInsights(data, grandTotal, grandZeroed, avgPercentage);
         }
 
-        function renderCharts(labels, absoluteData, percentageData) {
-            // Chart configuration defaults for Dark Mode
+        // ==========================================
+        // ADMIN LOGIN & UPLOAD LOGIC
+        // ==========================================
+        function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('adminUser').value;
+            const pass = document.getElementById('adminPass').value;
+
+            // Credenciais fixas solicitadas
+            if (user === 'admin' && pass === 'admin123') {
+                showAdminView();
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        function resetAdminUpload() {
+            document.getElementById('adminStep1').classList.remove('hidden');
+            document.getElementById('adminStep1').classList.add('flex');
+            document.getElementById('adminStep2').classList.add('hidden');
+            document.getElementById('adminProcessing').classList.add('hidden');
+            document.getElementById('adminExcelFile').value = '';
+            jsonExportData = null;
+        }
+
+        function handleAdminFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('adminStep1').classList.add('hidden');
+            document.getElementById('adminProcessing').classList.remove('hidden');
+            document.getElementById('adminProcessing').classList.add('flex');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    processExcelToJson(workbook);
+                } catch (error) {
+                    alert("Erro ao processar o arquivo. Certifique-se de que é um Excel válido.");
+                    console.error(error);
+                    resetAdminUpload();
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function getCellValue(row, possibleKeys) {
+            for (const key of Object.keys(row)) {
+                const cleanKey = key.toString().trim().toLowerCase();
+                if (possibleKeys.map(k => k.toLowerCase()).includes(cleanKey)) {
+                    return row[key];
+                }
+            }
+            return null;
+        }
+
+        function processExcelToJson(workbook) {
+            let store = {};
+            Object.keys(factoryMap).forEach(code => {
+                store[code] = { code: code, name: factoryMap[code], total: 0, zeroed: 0 };
+            });
+
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+                if (sheetName.trim().toLowerCase() === 'relatório cruzado' || sheetName.trim().toLowerCase() === 'relatorio cruzado') {
+                    rows.forEach(row => {
+                        const qtd = getCellValue(row, ['Qtd Estoque']);
+                        if (qtd !== null && qtd !== '') {
+                            store['7951'].total++;
+                            if (Number(qtd) === 0) store['7951'].zeroed++;
+                        }
+                    });
+                } else if (factoryMap[sheetName]) {
+                    rows.forEach(row => {
+                        const saldo = getCellValue(row, ['Saldo']);
+                        if (saldo !== null && saldo !== '') {
+                            store[sheetName].total++;
+                            if (Number(saldo) === 0) store[sheetName].zeroed++;
+                        }
+                    });
+                }
+            });
+
+            // Prepara os dados pro JSON
+            jsonExportData = Object.values(store);
+
+            // Simula um tempo de "processamento" para melhor UX
+            setTimeout(() => {
+                document.getElementById('adminProcessing').classList.add('hidden');
+                document.getElementById('adminProcessing').classList.remove('flex');
+                
+                document.getElementById('adminStep2').classList.remove('hidden');
+                document.getElementById('adminStep2').classList.add('flex');
+            }, 800);
+        }
+
+        function downloadJSON() {
+            if (!jsonExportData) return;
+            
+            const dataStr = JSON.stringify(jsonExportData, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "dados_estoque.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+
+        // ==========================================
+        // UI & RENDERING LOGIC (Retained from original)
+        // ==========================================
+        function renderCharts(labels, absoluteData, availabilityData) {
             Chart.defaults.color = '#94a3b8';
             Chart.defaults.font.family = 'Inter';
 
-            // Absolute Chart (Red Theme)
             const ctxAbs = document.getElementById('absoluteChart').getContext('2d');
             if (absoluteChartInstance) absoluteChartInstance.destroy();
-            
             absoluteChartInstance = new Chart(ctxAbs, {
                 type: 'bar',
                 data: {
@@ -439,7 +660,7 @@
                     datasets: [{
                         label: 'Itens Zerados',
                         data: absoluteData,
-                        backgroundColor: 'rgba(239, 68, 68, 0.8)', // Red 500
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
                         borderColor: 'rgb(239, 68, 68)',
                         borderWidth: 1,
                         borderRadius: 4,
@@ -449,133 +670,92 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#1e293b',
-                            titleColor: '#f1f5f9',
-                            bodyColor: '#f1f5f9',
-                            padding: 12,
-                            cornerRadius: 8,
-                            displayColors: false
-                        }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(51, 65, 85, 0.5)' } },
-                        x: { grid: { display: false } }
-                    }
+                    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#f1f5f9', padding: 12, cornerRadius: 8, displayColors: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(51, 65, 85, 0.5)' } }, x: { grid: { display: false } } }
                 }
             });
 
-            // Percentage Chart (Blue Theme)
             const ctxPerc = document.getElementById('percentageChart').getContext('2d');
             if (percentageChartInstance) percentageChartInstance.destroy();
-
+            const pieColors = [ 'rgba(16, 185, 129, 0.85)', 'rgba(59, 130, 246, 0.85)', 'rgba(139, 92, 246, 0.85)', 'rgba(245, 158, 11, 0.85)', 'rgba(6, 182, 212, 0.85)', 'rgba(236, 72, 153, 0.85)', 'rgba(249, 115, 22, 0.85)', 'rgba(168, 85, 247, 0.85)' ];
             percentageChartInstance = new Chart(ctxPerc, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '% Zerados',
-                        data: percentageData,
-                        backgroundColor: 'rgba(59, 130, 246, 0.8)', // Blue 500
-                        borderColor: 'rgb(59, 130, 246)',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        hoverBackgroundColor: 'rgba(59, 130, 246, 1)'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#1e293b',
-                            titleColor: '#f1f5f9',
-                            bodyColor: '#f1f5f9',
-                            padding: 12,
-                            cornerRadius: 8,
-                            displayColors: false,
-                            callbacks: {
-                                label: function(context) { return context.parsed.y + '%'; }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, max: 100, grid: { color: 'rgba(51, 65, 85, 0.5)' } },
-                        x: { grid: { display: false } }
-                    }
-                }
+                type: 'pie',
+                data: { labels: labels, datasets: [{ label: '% de Disponibilidade', data: availabilityData, backgroundColor: pieColors.slice(0, labels.length), borderColor: '#151c2c', borderWidth: 3, hoverOffset: 6 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#cbd5e1', font: { family: 'Inter', size: 12 }, padding: 20, usePointStyle: true, pointStyle: 'circle' } }, tooltip: { backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#f1f5f9', padding: 12, cornerRadius: 8, callbacks: { label: function(context) { return ' ' + context.label + ': ' + context.parsed + '% Disponível'; } } } } }
             });
         }
 
         function renderTable(data) {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
-
             data.forEach(item => {
                 const percentage = item.total > 0 ? ((item.zeroed / item.total) * 100).toFixed(2) : '0.00';
-                const isHighRisk = percentage > 20; // Example threshold for highlighting
-
+                const isHighRisk = percentage > 20;
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/80 transition-colors";
                 tr.innerHTML = `
-                    <td class="py-4 px-6 font-medium text-white flex items-center gap-2">
-                        ${isHighRisk ? '<div class="w-2 h-2 rounded-full bg-accentRed shadow-[0_0_8px_#ef4444]"></div>' : '<div class="w-2 h-2 rounded-full bg-primaryBlue"></div>'}
-                        ${item.name}
-                    </td>
+                    <td class="py-4 px-6 font-medium text-white flex items-center gap-2">${isHighRisk ? '<div class="w-2 h-2 rounded-full bg-accentRed shadow-[0_0_8px_#ef4444]"></div>' : '<div class="w-2 h-2 rounded-full bg-primaryBlue"></div>'} ${item.name}</td>
                     <td class="py-4 px-6 text-slate-400">#${item.code}</td>
                     <td class="py-4 px-6 text-right font-medium">${item.total.toLocaleString('pt-BR')}</td>
                     <td class="py-4 px-6 text-right font-bold ${item.zeroed > 0 ? 'text-accentRed' : 'text-slate-300'}">${item.zeroed.toLocaleString('pt-BR')}</td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="px-2 py-1 rounded-md text-xs font-semibold ${isHighRisk ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}">
-                            ${percentage}%
-                        </span>
-                    </td>
-                    <td class="py-4 px-6 text-center">
-                        <button onclick="openActionPlanModal('${item.name}', '${item.code}', ${item.total}, ${item.zeroed}, '${percentage}')" class="p-2 rounded-lg bg-slate-800 hover:bg-primaryBlue/20 hover:text-primaryBlue text-slate-400 transition-colors group relative" title="Gerar Plano de Ação">
-                            ✨
-                        </button>
-                    </td>
+                    <td class="py-4 px-6 text-right"><span class="px-2 py-1 rounded-md text-xs font-semibold ${isHighRisk ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}">${percentage}%</span></td>
+                    <td class="py-4 px-6 text-center"><button onclick="openActionPlanModal('${item.name}', '${item.code}', ${item.total}, ${item.zeroed}, '${percentage}')" class="p-2 rounded-lg bg-slate-800 hover:bg-primaryBlue/20 hover:text-primaryBlue text-slate-400 transition-colors group relative" title="Gerar Plano de Ação">✨</button></td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // --- GEMINI API INTEGRATION ---
-        
+        function renderTicker(data) {
+            const tickerContainer = document.getElementById('tickerContent');
+            let tickerHTML = '';
+            data.forEach(item => {
+                const percentage = item.total > 0 ? ((item.zeroed / item.total) * 100).toFixed(1) : '0.0';
+                tickerHTML += `
+                    <div class="inline-flex items-center mx-6 text-sm">
+                        <span class="font-bold text-white mr-2">${item.name}</span>
+                        <span class="text-slate-500 mr-2">(${item.code}):</span>
+                        <span class="text-accentRed font-semibold mr-1">${item.zeroed.toLocaleString('pt-BR')} itens zerados</span>
+                        <span class="text-primaryBlue bg-blue-500/10 px-2 py-0.5 rounded-full text-xs font-bold">(${percentage}%)</span>
+                        <span class="mx-6 text-slate-700">|</span>
+                    </div>
+                `;
+            });
+            tickerContainer.innerHTML = tickerHTML;
+        }
+
+        function animateValue(id, start, end, duration) {
+            if (start === end) { document.getElementById(id).innerHTML = end.toLocaleString('pt-BR'); return; }
+            let obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                obj.innerHTML = Math.floor(easeProgress * (end - start) + start).toLocaleString('pt-BR');
+                if (progress < 1) window.requestAnimationFrame(step);
+                else obj.innerHTML = end.toLocaleString('pt-BR');
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // --- GEMINI API INTEGRATION & MODALS ---
         async function callGemini(prompt, systemInstruction) {
-            // Recupera chave customizada caso a injeção do ambiente falhe
             const customKey = localStorage.getItem('gemini_api_key') || "";
             const finalKey = customKey || apiKey;
-            
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${finalKey}`;
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: systemInstruction }] }
-            };
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${finalKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: systemInstruction }] } };
 
             for (let i = 0; i < 5; i++) {
                 try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     if (!response.ok) {
-                        if (response.status === 401 || response.status === 403) {
-                            // Não faz retry em erros de autenticação (ex: chave vazia ou inválida)
-                            return null;
-                        }
+                        if (response.status === 401 || response.status === 403) return null;
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    
                     const result = await response.json();
                     return result.candidates?.[0]?.content?.parts?.[0]?.text || "Nenhuma resposta gerada.";
                 } catch (error) {
-                    if (i === 4) return null; // Retorna null após todas as tentativas
+                    if (i === 4) return null;
                     await new Promise(res => setTimeout(res, 1000 * Math.pow(2, i)));
                 }
             }
@@ -603,10 +783,7 @@
             if (response) {
                 container.innerHTML = formatAIResponse(response);
             } else {
-                container.innerHTML = `<p class="text-red-400 flex flex-col gap-2">
-                    <span class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Erro de Autenticação (401).</span>
-                    <span class="text-slate-400 text-xs mt-1">A injeção automática de chave falhou. Por favor, clique no ícone de engrenagem (<i data-lucide="settings" class="w-3 h-3 inline"></i>) no topo da tela para inserir sua própria chave de API.</span>
-                </p>`;
+                container.innerHTML = `<p class="text-red-400 flex flex-col gap-2"><span class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Erro de Autenticação (401).</span><span class="text-slate-400 text-xs mt-1">A injeção automática de chave falhou. Insira sua própria chave de API na engrenagem.</span></p>`;
                 lucide.createIcons();
             }
         }
@@ -615,145 +792,64 @@
             const modal = document.getElementById('aiModal');
             const content = document.getElementById('aiModalContent');
             const info = document.getElementById('modalFactoryInfo');
-            
             if (!modal || !content || !info) return;
 
             modal.classList.remove('hidden');
             modal.classList.add('flex');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                const innerDiv = modal.querySelector('div');
-                if (innerDiv) innerDiv.classList.remove('scale-95');
-            }, 10);
+            setTimeout(() => { modal.classList.remove('opacity-0'); const innerDiv = modal.querySelector('div'); if (innerDiv) innerDiv.classList.remove('scale-95'); }, 10);
 
             info.innerHTML = `Fábrica: <strong class="text-white">${name} (${code})</strong> | Itens Zerados: <span class="text-accentRed font-bold">${zeroed}</span> de ${total} (${percentage}%)`;
-            content.innerHTML = `<div class="flex flex-col items-center justify-center py-10 gap-4 text-slate-400 animate-pulse">
-                <i data-lucide="brain-circuit" class="w-12 h-12 text-primaryBlue animate-bounce"></i>
-                <p>Gerando plano de ação tático...</p>
-            </div>`;
+            content.innerHTML = `<div class="flex flex-col items-center justify-center py-10 gap-4 text-slate-400 animate-pulse"><i data-lucide="brain-circuit" class="w-12 h-12 text-primaryBlue animate-bounce"></i><p>Gerando plano de ação tático...</p></div>`;
             lucide.createIcons();
 
             const prompt = `Fábrica: ${name}. Itens Totais: ${total}. Itens Zerados: ${zeroed}. Porcentagem Crítica: ${percentage}%.`;
-            const sysPrompt = "Você é um Consultor Logístico Tático. Gere um plano de ação rápido (3 a 4 tópicos curtos) para mitigar a falta de estoque nesta fábrica específica. Use tom proativo, cite estratégias como cross-docking ou remanejamento ágil. Responda em PT-BR usando markdown bullet points (*).";
+            const sysPrompt = "Você é um Consultor Logístico Tático. Gere um plano de ação rápido (3 a 4 tópicos curtos) para mitigar a falta de estoque nesta fábrica específica. Use tom proativo. Responda em PT-BR usando markdown bullet points (*).";
 
             const response = await callGemini(prompt, sysPrompt);
-            if (response) {
-                content.innerHTML = formatAIResponse(response);
-            } else {
-                content.innerHTML = `<p class="text-red-400 text-center py-6 flex flex-col items-center gap-3">
-                    <i data-lucide="shield-alert" class="w-8 h-8 text-red-500"></i>
-                    <span>Erro de Autenticação (401). A chave automática não foi reconhecida.</span>
-                    <span class="text-sm text-slate-400">Clique na engrenagem (<i data-lucide="settings" class="w-4 h-4 inline"></i>) no cabeçalho para inserir sua API Key do Gemini.</span>
-                </p>`;
-                lucide.createIcons();
-            }
+            if (response) content.innerHTML = formatAIResponse(response);
+            else { content.innerHTML = `<p class="text-red-400 text-center py-6 flex flex-col items-center gap-3"><i data-lucide="shield-alert" class="w-8 h-8 text-red-500"></i><span>Erro de Autenticação (401).</span><span class="text-sm text-slate-400">Clique na engrenagem no cabeçalho para inserir sua API Key.</span></p>`; lucide.createIcons(); }
         }
 
         function closeModal() {
             const modal = document.getElementById('aiModal');
             if (!modal) return;
-            
             modal.classList.add('opacity-0');
             const innerDiv = modal.querySelector('div');
             if (innerDiv) innerDiv.classList.add('scale-95');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }, 300);
+            setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
         }
 
-        // --- Configurações (Settings) Logic ---
         function openSettingsModal() {
             const modal = document.getElementById('settingsModal');
             const input = document.getElementById('apiKeyInput');
             if (!modal || !input) return;
-            
             input.value = localStorage.getItem('gemini_api_key') || '';
-            
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                const innerDiv = modal.querySelector('div');
-                if (innerDiv) innerDiv.classList.remove('scale-95');
-            }, 10);
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            setTimeout(() => { modal.classList.remove('opacity-0'); const innerDiv = modal.querySelector('div'); if (innerDiv) innerDiv.classList.remove('scale-95'); }, 10);
         }
 
         function closeSettingsModal() {
             const modal = document.getElementById('settingsModal');
             if (!modal) return;
-            
             modal.classList.add('opacity-0');
             const innerDiv = modal.querySelector('div');
             if (innerDiv) innerDiv.classList.add('scale-95');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }, 300);
+            setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
         }
 
         function saveApiKey() {
             const input = document.getElementById('apiKeyInput');
             localStorage.setItem('gemini_api_key', input.value.trim());
             closeSettingsModal();
-            
-            // Fornecer feedback rápido se a tabela já estiver aberta
-            if (!document.getElementById('dashboard').classList.contains('hidden')) {
-                const insightsContainer = document.getElementById('aiInsightsContent');
-                if (insightsContainer.innerHTML.includes('Erro de Autenticação')) {
-                    insightsContainer.innerHTML = `<p class="text-green-400 flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Chave de API salva. Por favor, carregue a planilha novamente para processar os Insights.</p>`;
-                    lucide.createIcons();
-                }
-            }
         }
 
-        function renderTicker(data) {
-            const tickerContainer = document.getElementById('tickerContent');
-            let tickerHTML = '';
-
-            data.forEach(item => {
-                const percentage = item.total > 0 ? ((item.zeroed / item.total) * 100).toFixed(1) : '0.0';
-                
-                tickerHTML += `
-                    <div class="inline-flex items-center mx-6 text-sm">
-                        <span class="font-bold text-white mr-2">${item.name}</span>
-                        <span class="text-slate-500 mr-2">(${item.code}):</span>
-                        <span class="text-accentRed font-semibold mr-1">${item.zeroed.toLocaleString('pt-BR')} itens zerados</span>
-                        <span class="text-primaryBlue bg-blue-500/10 px-2 py-0.5 rounded-full text-xs font-bold">(${percentage}%)</span>
-                        <span class="mx-6 text-slate-700">|</span>
-                    </div>
-                `;
-            });
-
-            // Duplicate content to ensure smooth seamless-like appearance if needed, 
-            // but for simple left-to-right offscreen scrolling, single content block is fine.
-            tickerContainer.innerHTML = tickerHTML;
-        }
-
-        // Helper: Number counting animation
-        function animateValue(id, start, end, duration) {
-            if (start === end) {
-                document.getElementById(id).innerHTML = end.toLocaleString('pt-BR');
-                return;
-            }
-            let obj = document.getElementById(id);
-            let startTimestamp = null;
-            const step = (timestamp) => {
-                if (!startTimestamp) startTimestamp = timestamp;
-                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-                // Ease out function
-                const easeProgress = 1 - Math.pow(1 - progress, 3);
-                obj.innerHTML = Math.floor(easeProgress * (end - start) + start).toLocaleString('pt-BR');
-                if (progress < 1) {
-                    window.requestAnimationFrame(step);
-                } else {
-                    obj.innerHTML = end.toLocaleString('pt-BR');
-                }
-            };
-            window.requestAnimationFrame(step);
-        }
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        // Start application by showing the Public View
+        window.onload = function() {
+            showPublicView();
+        };
 
     </script>
 </body>
