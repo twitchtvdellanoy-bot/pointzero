@@ -345,6 +345,7 @@
         lucide.createIcons();
 
         // Gemini API Config Oculta (Base64 da nova chave)
+        const apiKey = ""; // Injetada pelo ambiente (para testes no Canvas)
         const chaveOculta = "QUl6YVN5RFpLbDNNQ3hOajhxNDZORFVTUjQ3TGVXZ1piWE5PUWk0";
         
         // Data variable for Admin JSON export
@@ -690,11 +691,14 @@
 
         // --- GEMINI API INTEGRATION & MODALS ---
         async function callGemini(prompt, systemInstruction) {
-            // Desembaralha a chave via Base64 na hora de usar
-            const finalKey = atob(chaveOculta);
+            // Tenta usar a chave injetada pelo ambiente primeiro (para funcionar no Canvas).
+            // Se não existir, usa a sua chave decodificada (para funcionar no GitHub Pages).
+            const finalKey = apiKey || atob(chaveOculta);
             
-            // ATENÇÃO: Atualizado para o modelo estável "gemini-1.5-flash"
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${finalKey}`;
+            // Ajuste do modelo: o Canvas requer o preview 09-2025, mas fora daqui usa o seu 1.5-flash
+            const model = apiKey ? "gemini-2.5-flash-preview-09-2025" : "gemini-1.5-flash";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${finalKey}`;
+            
             const payload = { contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: systemInstruction }] } };
 
             for (let i = 0; i < 5; i++) {
