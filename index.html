@@ -344,8 +344,8 @@
         // Initialize Icons
         lucide.createIcons();
 
-        // Gemini API Config Oculta (Base64 da chave solicitada)
-        const chaveOculta = "QUl6YVN5QXdzV3FSdWVpR0ZrMWY1TFBQMDdMUG9uZkV2Q01RS0s4";
+        // Gemini API Config Oculta (Base64 da nova chave)
+        const chaveOculta = "QUl6YVN5RFpLbDNNQ3hOajhxNDZORFVTUjQ3TGVXZ1piWE5PUWk0";
         
         // Data variable for Admin JSON export
         let jsonExportData = null;
@@ -692,7 +692,9 @@
         async function callGemini(prompt, systemInstruction) {
             // Desembaralha a chave via Base64 na hora de usar
             const finalKey = atob(chaveOculta);
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${finalKey}`;
+            
+            // ATENÇÃO: Atualizado para o modelo estável "gemini-1.5-flash"
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${finalKey}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: systemInstruction }] } };
 
             for (let i = 0; i < 5; i++) {
@@ -733,7 +735,7 @@
             if (response) {
                 container.innerHTML = formatAIResponse(response);
             } else {
-                container.innerHTML = `<p class="text-red-400 flex flex-col gap-2"><span class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Erro de Autenticação na API (401/403).</span><span class="text-slate-400 text-xs mt-1">Verifique a configuração interna da chave.</span></p>`;
+                container.innerHTML = `<p class="text-red-400 flex flex-col gap-2"><span class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Erro de Autenticação na API (401/403).</span><span class="text-slate-400 text-xs mt-1">Verifique a configuração interna da chave ou a versão do modelo.</span></p>`;
                 lucide.createIcons();
             }
         }
